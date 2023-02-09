@@ -148,7 +148,7 @@ if __name__ == '__main__':
     new_level = logger.level("YH", no=38, color="<white>", icon="    ")
     new_level_TW = logger.level("TW", no=40, color="<green>", icon="****")
     new_level3_US = logger.level("US", no=42, color="<red>", icon="****")
-    logger.add(".logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
+    logger.add("./logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
     schedule.every(60).seconds.do(get_yf_realtime_data)
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
