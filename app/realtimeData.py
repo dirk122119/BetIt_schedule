@@ -71,17 +71,20 @@ def get_tw_all_realtime_market():
     parameter = {
         "token": token, # 參考登入，獲取金鑰
     }
-    resp = requests.get(url, params=parameter)
-    data = resp.json()
-    
-    client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
-    client.json().set('realtime:tw', Path.root_path(), data)
-    
-    UTC_timezone = pytz.timezone("UTC") 
-    current_time = datetime.datetime.now(UTC_timezone)
-    logger.log("TW_realtime", f"UTC Time now is {current_time}")
-    logger.log("TW_realtime", f"set realtime data to {os.getenv('Redis_host')}")
+    try:
+        resp = requests.get(url, params=parameter)
+        data = resp.json()
+        
+        client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+        client.json().set('realtime:tw', Path.root_path(), data)
 
+        UTC_timezone = pytz.timezone("UTC") 
+        current_time = datetime.datetime.now(UTC_timezone)
+        logger.log("TW_realtime", f"UTC Time now is {current_time}")
+        logger.log("TW_realtime", f"set realtime data to {os.getenv('Redis_host')}")
+    except Exception as e:
+        logger.error(f"{e}")
+        
 def getAndInsert_Symbol_daily(region):
     load_dotenv()
     db_config = {
