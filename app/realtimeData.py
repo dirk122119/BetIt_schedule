@@ -64,9 +64,23 @@ def get_yf_realtime_data():
     except Exception as e:
         logger.error(f"{e}")
 
-
-
-
+def get_tw_all_realtime_market():
+    load_dotenv()
+    token=os.getenv('FinMindTolen')
+    url = "https://api.finmindtrade.com/api/v4/taiwan_stock_tick_snapshot"
+    parameter = {
+        "token": token, # 參考登入，獲取金鑰
+    }
+    resp = requests.get(url, params=parameter)
+    data = resp.json()
+    
+    client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+    client.json().set('realtime:tw', Path.root_path(), data)
+    
+    UTC_timezone = pytz.timezone("UTC") 
+    current_time = datetime.datetime.now(UTC_timezone)
+    logger.log("TW_realtime", f"UTC Time now is {current_time}")
+    logger.log("TW_realtime", f"set realtime data to {os.getenv('Redis_host')}")
 
 def getAndInsert_Symbol_daily(region):
     load_dotenv()
@@ -147,9 +161,11 @@ def getAndInsert_Symbol_daily(region):
 if __name__ == '__main__':
     new_level = logger.level("YH", no=38, color="<white>", icon="    ")
     new_level_TW = logger.level("TW", no=40, color="<green>", icon="****")
+    new_level2_TW_realtime = logger.level("TW_realtime", no=40, color="<green>", icon="****")
     new_level3_US = logger.level("US", no=42, color="<red>", icon="****")
     logger.add("./logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
     schedule.every(60).seconds.do(get_yf_realtime_data)
+    schedule.every(15).seconds.do(get_tw_all_realtime_market)
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
     schedule.every().day.at("16:00").do(getAndInsert_Symbol_daily,region="TW")
@@ -158,3 +174,4 @@ if __name__ == '__main__':
         schedule.run_pending()
         time.sleep(1)
     # get_yf_realtime_data()
+
