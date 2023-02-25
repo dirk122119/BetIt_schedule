@@ -211,6 +211,7 @@ if __name__ == '__main__':
     new_level5_crypto_realtime = logger.level("Crypto_realtime", no=42, color="<blue>", icon="****")
     logger.add("./logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
     schedule.every(60).seconds.do(get_yf_realtime_data)
+    schedule.every(60).seconds.do(get_crypto_all_realtime_market)
     schedule.every(15).seconds.do(get_tw_all_realtime_market)
     schedule.every().day.at("09:00").do(get_us_all_daily_market) 
     ## Tokyo time because EC2 in Tokyo
