@@ -74,17 +74,58 @@ def get_tw_all_realtime_market():
     try:
         resp = requests.get(url, params=parameter)
         data = resp.json()
-        
-        client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
-        client.json().set('realtime:tw', Path.root_path(), data)
-
-        UTC_timezone = pytz.timezone("UTC") 
-        current_time = datetime.datetime.now(UTC_timezone)
-        logger.log("TW_realtime", f"UTC Time now is {current_time}")
-        logger.log("TW_realtime", f"set realtime data to {os.getenv('Redis_host')}")
+        if(data['data']):
+            client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+            client.json().set('realtime:TW_realtime', Path.root_path(), data["data"])
+            UTC_timezone = pytz.timezone("UTC") 
+            current_time = datetime.datetime.now(UTC_timezone)
+            logger.log("TW_realtime", f"UTC Time now is {current_time}")
+            logger.log("TW_realtime", f"set realtime data to {os.getenv('Redis_host')}")
     except Exception as e:
         logger.error(f"{e}")
+def get_us_all_daily_market():
+    date=datetime.datetime.today()
+    load_dotenv()
+    token=os.getenv('FinMindTolen')
+    url = 'https://api.finmindtrade.com/api/v4/data'
+    parameter = {
+    "dataset": "USStockPrice",
+    "start_date": "2023-02-24",
+    "token": token, # 參考登入，獲取金鑰
+    }
+    data = requests.get(url, params=parameter)
+    data = data.json()
+    try:
+        if(data['data']):
+            client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+            client.json().set('realtime:US_daily', Path.root_path(),data['data'])
+            UTC_timezone = pytz.timezone("UTC") 
+            current_time = datetime.datetime.now(UTC_timezone)
+            logger.log("US_daily", f"UTC Time now is {current_time}")
+            logger.log("US_daily", f"set realtime data to {os.getenv('Redis_host')}")
+    except Exception as e:
+        logger.error(f"{e}")
+def get_crypto_all_realtime_market():
+    load_dotenv()
+    coin_list=[]
+    try:
+        for i in range (1,6):
+            url=f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h%2C7d"
+            data=requests.get(url)
+            coin_list=coin_list+data.json()
         
+        client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+        client.json().set('realtime:crypto', Path.root_path(), {"data":coin_list})
+
+        res = requests.get('https://api.coingecko.com/api/v3/search/trending')
+        top_7=res.json()
+        client.json().set('realtime:crypto_top7', Path.root_path(), top_7)
+        UTC_timezone = pytz.timezone("UTC") 
+        current_time = datetime.datetime.now(UTC_timezone)
+        logger.log("Crypto_realtime", f"UTC Time now is {current_time}")
+        logger.log("Crypto_realtime", f"set realtime data to {os.getenv('Redis_host')}")
+    except Exception as e:
+        logger.error(f"{e}")
 def getAndInsert_Symbol_daily(region):
     load_dotenv()
     db_config = {
@@ -166,9 +207,12 @@ if __name__ == '__main__':
     new_level_TW = logger.level("TW", no=40, color="<green>", icon="****")
     new_level2_TW_realtime = logger.level("TW_realtime", no=40, color="<green>", icon="****")
     new_level3_US = logger.level("US", no=42, color="<red>", icon="****")
+    new_level4_US_daily = logger.level("US_daily", no=42, color="<red>", icon="****")
+    new_level5_crypto_realtime = logger.level("Crypto_realtime", no=42, color="<blue>", icon="****")
     logger.add("./logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
     schedule.every(60).seconds.do(get_yf_realtime_data)
     schedule.every(15).seconds.do(get_tw_all_realtime_market)
+    schedule.every().day.at("9:00").do(get_us_all_daily_market) 
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
     schedule.every().day.at("16:00").do(getAndInsert_Symbol_daily,region="TW")
