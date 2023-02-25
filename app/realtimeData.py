@@ -109,7 +109,7 @@ def get_crypto_all_realtime_market():
     load_dotenv()
     coin_list=[]
     try:
-        for i in range (1,6):
+        for i in range (1,8):
             url=f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h%2C7d"
             data=requests.get(url)
             coin_list=coin_list+data.json()
