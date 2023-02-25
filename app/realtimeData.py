@@ -90,7 +90,7 @@ def get_us_all_daily_market():
     url = 'https://api.finmindtrade.com/api/v4/data'
     parameter = {
     "dataset": "USStockPrice",
-    "start_date": "2023-02-24",
+    "start_date": date,
     "token": token, # 參考登入，獲取金鑰
     }
     data = requests.get(url, params=parameter)
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     logger.add("./logger/{time:YYYY-MM-DD-HH-mm!UTC}.log",format="{time:YYYY-MM-DD at HH:mm:ss}|{level.icon} {level} {level.icon}|  {message}",colorize = True, rotation="1 days")
     schedule.every(60).seconds.do(get_yf_realtime_data)
     schedule.every(15).seconds.do(get_tw_all_realtime_market)
-    schedule.every().day.at("9:00").do(get_us_all_daily_market) 
+    schedule.every().day.at("09:00").do(get_us_all_daily_market) 
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
     schedule.every().day.at("16:00").do(getAndInsert_Symbol_daily,region="TW")
