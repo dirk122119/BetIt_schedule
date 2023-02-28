@@ -84,19 +84,20 @@ def get_tw_all_realtime_market():
     except Exception as e:
         logger.error(f"{e}")
 def get_us_all_daily_market():
-    date=datetime.datetime.today()
+    date=(datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    print(date)
     load_dotenv()
     token=os.getenv('FinMindTolen')
     url = 'https://api.finmindtrade.com/api/v4/data'
     parameter = {
     "dataset": "USStockPrice",
     "start_date": date,
-    "token": token, # 參考登入，獲取金鑰
+    "token": token,
     }
-    data = requests.get(url, params=parameter)
-    data = data.json()
     try:
-        if(data['data']):
+        resp = requests.get(url, params=parameter)
+        data = resp.json()
+        if(len(data['data'])>1):
             client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
             client.json().set('realtime:US_daily', Path.root_path(),data['data'])
             UTC_timezone = pytz.timezone("UTC") 
@@ -200,7 +201,18 @@ def getAndInsert_Symbol_daily(region):
     cursor.close()
     connect_objt.close()
 
-
+def check_answer():
+    load_dotenv()
+    db_config = {
+        'host' : os.getenv('sqlHost'),
+        'user' : os.getenv('sqlUser'),
+        'password' : os.getenv('sqlPassword'),
+        'database' : os.getenv('sqlDatabase'),
+        'port' : os.getenv('sqlPort')
+    }
+    cnxpool = mysql.connector.pooling.MySQLConnectionPool(pool_name = "rds",pool_size=10, **db_config)
+    connect_objt=cnxpool.get_connection()
+    cursor = connect_objt.cursor(buffered=True)
 
 if __name__ == '__main__':
     new_level = logger.level("YH", no=38, color="<white>", icon="    ")
@@ -213,6 +225,7 @@ if __name__ == '__main__':
     schedule.every(60).seconds.do(get_yf_realtime_data)
     schedule.every(60).seconds.do(get_crypto_all_realtime_market)
     schedule.every(15).seconds.do(get_tw_all_realtime_market)
+    schedule.every(15).seconds.do(get_us_all_daily_market)
     schedule.every().day.at("09:00").do(get_us_all_daily_market) 
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
@@ -222,4 +235,3 @@ if __name__ == '__main__':
         schedule.run_pending()
         time.sleep(1)
     # get_yf_realtime_data()
-
