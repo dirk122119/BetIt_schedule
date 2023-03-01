@@ -85,7 +85,6 @@ def get_tw_all_realtime_market():
         logger.error(f"{e}")
 def get_us_all_daily_market():
     date=(datetime.datetime.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-    print(date)
     load_dotenv()
     token=os.getenv('FinMindTolen')
     url = 'https://api.finmindtrade.com/api/v4/data'
@@ -225,7 +224,6 @@ if __name__ == '__main__':
     schedule.every(60).seconds.do(get_yf_realtime_data)
     schedule.every(60).seconds.do(get_crypto_all_realtime_market)
     schedule.every(15).seconds.do(get_tw_all_realtime_market)
-    schedule.every(15).seconds.do(get_us_all_daily_market)
     schedule.every().day.at("09:00").do(get_us_all_daily_market) 
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
