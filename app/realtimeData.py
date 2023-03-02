@@ -108,14 +108,20 @@ def get_us_all_daily_market():
 def get_crypto_all_realtime_market():
     load_dotenv()
     coin_list=[]
+    crypto_symbol=[]
     try:
         for i in range (1,8):
             url=f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page={i}&price_change_percentage=1h%2C24h%2C7d"
             data=requests.get(url)
             coin_list=coin_list+data.json()
         
+        for coin in coin_list:
+            crypto_symbol.append({"symbol":coin["id"],"name":coin["name"]})
+
         client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
         client.json().set('realtime:crypto', Path.root_path(), {"data":coin_list})
+        client = redis.Redis(host=os.getenv('Redis_host'), port=os.getenv('Redis_port'),password=os.getenv('Redis_password'))
+        client.json().set('realtime:crypto_symbol', Path.root_path(), {"symbol":crypto_symbol})
 
         res = requests.get('https://api.coingecko.com/api/v3/search/trending')
         top_7=res.json()
@@ -165,38 +171,38 @@ def getAndInsert_Symbol_daily(region):
         val=(symbolId,)
         cursor.execute(sql,val)
         last_date=cursor.fetchone()
+        if(last_date):
+            parameter = {
+            "dataset": Dataset,
+            "data_id": symbol,
+            "start_date": last_date[0]+ datetime.timedelta(1),
+            "end_date": datetime.datetime.now().date(),
+            "token": os.getenv('FinMindTolen'), # 參考登入，獲取金鑰
+            }
 
-        parameter = {
-        "dataset": Dataset,
-        "data_id": symbol,
-        "start_date": last_date[0]+ datetime.timedelta(1),
-        "end_date": datetime.datetime.now().date(),
-        "token": os.getenv('FinMindTolen'), # 參考登入，獲取金鑰
-        }
-
-        for index in range(1,6,1):
-            try:
-                resp = requests.get(url, params=parameter)
-                data = resp.json()
-                data = pd.DataFrame(data["data"])
-                if data.empty:
-                    logger.log(region,f"{symbol} is latest")
-                else :
-                    logger.log(region,f"updating {symbol}")
-                    for i in range (0,data.shape[0]):
-                        sql=f"INSERT INTO {StockTable}(symbol,date,open,high,low,close,volume) VALUES(%s,%s,%s,%s,%s,%s,%s)"
-                        if(region=="TW"):
-                            val=(symbolId,data.iloc[i]["date"],data.iloc[i]["open"].item(),data.iloc[i]["max"].item(),data.iloc[i]["min"].item(),data.iloc[i]["close"].item(),data.iloc[i]["Trading_Volume"].item())
-                        elif(region=="US"):
-                            val=(symbolId,data.iloc[i]["date"],data.iloc[i]["Open"].item(),data.iloc[i]["High"].item(),data.iloc[i]["Low"].item(),data.iloc[i]["Close"].item(),data.iloc[i]["Volume"].item())
-                        cursor.execute(sql,val)
-                        connect_objt.commit()
-                    logger.log(region,f"{symbol} update finish")
-                time.sleep(3)
-                break
-            except Exception as e:
-                logger.error(f"{symbol} error {index} time,{e}")
-                time.sleep(30)
+            for index in range(1,6,1):
+                try:
+                    resp = requests.get(url, params=parameter)
+                    data = resp.json()
+                    data = pd.DataFrame(data["data"])
+                    if data.empty:
+                        logger.log(region,f"{symbol} is latest")
+                    else :
+                        logger.log(region,f"updating {symbol}")
+                        for i in range (0,data.shape[0]):
+                            sql=f"INSERT INTO {StockTable}(symbol,date,open,high,low,close,volume) VALUES(%s,%s,%s,%s,%s,%s,%s)"
+                            if(region=="TW"):
+                                val=(symbolId,data.iloc[i]["date"],data.iloc[i]["open"].item(),data.iloc[i]["max"].item(),data.iloc[i]["min"].item(),data.iloc[i]["close"].item(),data.iloc[i]["Trading_Volume"].item())
+                            elif(region=="US"):
+                                val=(symbolId,data.iloc[i]["date"],data.iloc[i]["Open"].item(),data.iloc[i]["High"].item(),data.iloc[i]["Low"].item(),data.iloc[i]["Close"].item(),data.iloc[i]["Volume"].item())
+                            cursor.execute(sql,val)
+                            connect_objt.commit()
+                        logger.log(region,f"{symbol} update finish")
+                    time.sleep(1)
+                    break
+                except Exception as e:
+                    logger.error(f"{symbol} error {index} time,{e}")
+                    time.sleep(30)
     cursor.close()
     connect_objt.close()
 
@@ -212,6 +218,59 @@ def check_answer():
     cnxpool = mysql.connector.pooling.MySQLConnectionPool(pool_name = "rds",pool_size=10, **db_config)
     connect_objt=cnxpool.get_connection()
     cursor = connect_objt.cursor(buffered=True)
+    date=datetime.datetime.today().strftime("%Y-%m-%d")
+    sql="select id,market,symbol,date,price,direct,createrId from GameTable where date < %s AND isFinish = 0"
+    val=(date,)
+    cursor.execute(sql,val)
+    games=cursor.fetchall()
+    for game in games:
+        if(game[1]=="us_stock"):
+            symbol=game[2]
+            sql="select UsStockTable.date,UsStockTable.close,UsSymbols.symbol,UsSymbols.companyName from UsStockTable INNER JOIN UsSymbols ON UsStockTable.symbol = UsSymbols.id where UsSymbols.symbol = %s and UsStockTable.date = %s"
+            val=(symbol,game[3])
+            cursor.execute(sql,val)
+            record=cursor.fetchone()
+            if(record):
+                if(game[5]=="up"):
+                    if(game[4]<record[1]):
+                        isReach=True
+                    if(game[4]>record[1]):
+                        isReach=False
+                elif(game[5]=="down"):
+                    if(game[4]>record[1]):
+                        isReach=True
+                    if(game[4]<record[1]):
+                        isReach=False
+                sql="UPDATE GameTable SET isReach = %s,isFinish = %s WHERE id = %s;"
+                val=(isReach,True,game[0])
+                cursor.execute(sql,val)
+                connect_objt.commit()
+        elif(game[1]=="tw_stock"):
+            symbol=game[2]
+            sql="select TwStockTable.date,TwStockTable.close,TwSymbols.symbol,TwSymbols.companyName from TwStockTable INNER JOIN TwSymbols ON TwStockTable.symbol = TwSymbols.id where TwSymbols.symbol = %s and TwStockTable.date = %s"
+            val=(symbol,game[3])
+            cursor.execute(sql,val)
+            record=cursor.fetchone()
+            if(record):
+                if(game[5]=="up"):
+                    if(game[4]<record[1]):
+                        isReach=True
+                    if(game[4]>record[1]):
+                        isReach=False
+                elif(game[5]=="down"):
+                    if(game[4]>record[1]):
+                        isReach=True
+                    if(game[4]<record[1]):
+                        isReach=False
+                sql="UPDATE GameTable SET isReach = %s,isFinish = %s WHERE id = %s;"
+                val=(isReach,True,game[0])
+                cursor.execute(sql,val)
+                connect_objt.commit()
+        else:
+            print("crypto")
+            print(datetime.datetime.today().date()-game[3])
+    cursor.close()
+    connect_objt.close()
 
 if __name__ == '__main__':
     new_level = logger.level("YH", no=38, color="<white>", icon="    ")
@@ -228,6 +287,7 @@ if __name__ == '__main__':
     ## Tokyo time because EC2 in Tokyo
     schedule.every().day.at("19:00").do(getAndInsert_Symbol_daily,region="US") 
     schedule.every().day.at("16:00").do(getAndInsert_Symbol_daily,region="TW")
+    schedule.every().day.at("23:00").do(check_answer)
     # schedule.every().second.do(job)
     while True:
         schedule.run_pending()
