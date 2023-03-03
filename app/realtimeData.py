@@ -12,7 +12,7 @@ import pandas as pd
 import functools
 import pytz
 from apscheduler import schedulers
-
+import requests
 
 def get_yf_realtime_data():
     target_dic={"tw_index":"^TWII",
@@ -245,6 +245,15 @@ def check_answer():
                 val=(isReach,True,game[0])
                 cursor.execute(sql,val)
                 connect_objt.commit()
+                if(isReach):
+                    sql="UPDATE UserTable SET win = win +1 WHERE id = %s;"
+                    val=(game[6],)
+                else:
+                    sql="UPDATE UserTable SET lose = lose +1 WHERE id = %s;"
+                    val=(game[6],)
+                cursor.execute(sql,val)
+                connect_objt.commit()
+
         elif(game[1]=="tw_stock"):
             symbol=game[2]
             sql="select TwStockTable.date,TwStockTable.close,TwSymbols.symbol,TwSymbols.companyName from TwStockTable INNER JOIN TwSymbols ON TwStockTable.symbol = TwSymbols.id where TwSymbols.symbol = %s and TwStockTable.date = %s"
@@ -266,9 +275,41 @@ def check_answer():
                 val=(isReach,True,game[0])
                 cursor.execute(sql,val)
                 connect_objt.commit()
+                if(isReach):
+                    sql="UPDATE UserTable SET win = win +1 WHERE id = %s;"
+                    val=(game[6],)
+                else:
+                    sql="UPDATE UserTable SET lose = lose +1 WHERE id = %s;"
+                    val=(game[6],)
+                cursor.execute(sql,val)
+                connect_objt.commit()
         else:
-            print("crypto")
-            print(datetime.datetime.today().date()-game[3])
+            gamedate=f"{game[3].day}-{game[3].month}-{game[3].year}"
+            data = requests.get(f'https://api.coingecko.com/api/v3/coins/{game[2]}/history?date={gamedate}')
+            if(data.json()["market_data"]["current_price"]["usd"]):
+                price=data.json()["market_data"]["current_price"]["usd"]
+                if(game[5]=="up"):
+                    if(game[4]<price):
+                        isReach=True
+                    if(game[4]>price):
+                        isReach=False
+                elif(game[5]=="down"):
+                    if(game[4]>price):
+                        isReach=True
+                    if(game[4]<price):
+                        isReach=False
+                sql="UPDATE GameTable SET isReach = %s,isFinish = %s WHERE id = %s;"
+                val=(isReach,True,game[0])
+                cursor.execute(sql,val)
+                connect_objt.commit()
+                if(isReach):
+                    sql="UPDATE UserTable SET win = win +1 WHERE id = %s;"
+                    val=(game[6],)
+                else:
+                    sql="UPDATE UserTable SET lose = lose +1 WHERE id = %s;"
+                    val=(game[6],)
+                cursor.execute(sql,val)
+                connect_objt.commit()
     cursor.close()
     connect_objt.close()
 
