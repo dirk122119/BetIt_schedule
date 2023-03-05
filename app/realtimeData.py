@@ -33,6 +33,7 @@ def get_yf_realtime_data():
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64"}
             response = requests.request("GET", url, headers=headers, data=payload)
             if (response.json()["chart"]["result"]):
+                sparkline=response.json()["chart"]["result"][0]["indicators"]["quote"][0]["close"][-1::-4]
                 data={
                     "symbol":response.json()["chart"]["result"][0]["meta"]["symbol"],
                     "last_time":response.json()["chart"]["result"][0]["meta"]["regularMarketTime"],
@@ -43,7 +44,7 @@ def get_yf_realtime_data():
                     "range":response.json()["chart"]["result"][0]["meta"]["range"],
                     "timestamp":response.json()["chart"]["result"][0]["timestamp"],
                     "price_high":response.json()["chart"]["result"][0]["indicators"]["quote"][0]["high"],
-                    "price_close":response.json()["chart"]["result"][0]["indicators"]["quote"][0]["close"],
+                    "price_close":sparkline,
                     "price_low":response.json()["chart"]["result"][0]["indicators"]["quote"][0]["low"],
                     "price_open":response.json()["chart"]["result"][0]["indicators"]["quote"][0]["open"],
                     "price_volume":response.json()["chart"]["result"][0]["indicators"]["quote"][0]["volume"],}
